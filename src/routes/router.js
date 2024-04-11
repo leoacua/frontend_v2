@@ -12,6 +12,11 @@ Vue.use(VueRouter);
 const routes = [
   {
     path: '/',
+    name: 'MainPanel',
+    component: MainPanel
+  },
+  {
+    path: 'Home',
     name: 'Home',
     component: HelloWorld
   },
@@ -19,11 +24,6 @@ const routes = [
     path: '/ApiTest',
     name: 'ApiTest',
     component: ApiTest
-  },
-  {
-    path: '/MainPanel',
-    name: 'MainPanel',
-    component: MainPanel
   },
   {
     path: '/fetch_earthquake_data',
