@@ -12,7 +12,7 @@ Vue.use(VueRouter);
 const routes = [
   {
     path: '/',
-    name: 'MainPanel',
+    name: 'MainPane',
     component: MainPanel
   },
   {

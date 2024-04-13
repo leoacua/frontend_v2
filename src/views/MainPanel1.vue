@@ -1,9 +1,7 @@
 <template>
-    <b-container fluid="sm">
+    <b-container fluid>
        <b-row>
-        <b-col ><b-button variant="primary"  @click="executeFetchTask">Actualizar DB</b-button></b-col>
-        <b-col ></b-col>
-      <b-col  class="my-1">
+        <b-col lg="6" class="my-1">
         <b-form-group
           label="Filtro"
           label-for="filter-input"
@@ -17,22 +15,21 @@
               id="filter-input"
               v-model="filter"
               type="search"
-              placeholder="Buscar"
+              placeholder="Escribe para buscar"
             ></b-form-input>
+
             <b-input-group-append>
-              <b-button :disabled="!filter" @click="search">Borrar</b-button>
+              <b-button :disabled="!filter" @click="filter = ''">Buscar</b-button>
             </b-input-group-append>
           </b-input-group>
         </b-form-group>
       </b-col>
-      <b-col>1 of 3</b-col>
        </b-row>
       <div v-if="isLoading">Cargando...</div>
       <div v-else>
         <div v-if="error">Error: {{ error }}</div>
         <div v-else>
           <b-table
-           
             striped hover
             sticky-header
             head-variant="light"
@@ -43,15 +40,7 @@
             :apiData="apiData"
             :per-page="perPage"
             :current-page="currentPage"
-            
-          >
-          <template #table-busy>
-          <div class="text-center text-danger my-2">
-            <b-spinner class="align-middle"></b-spinner>
-            <strong>Loading...</strong>
-          </div>
-         </template>
-        </b-table>
+          ></b-table>
         </div>
       </div>
       <b-row>
@@ -74,7 +63,7 @@
   export default {
     data() {
       return {
-        filter:'',
+        filter: null,
         perPage: 100,
         currentPage: 1,
         isLoading: true,
@@ -106,24 +95,6 @@
           this.isLoading = false;
         });
     },
-    methods: {
-      // Método para ejecutar la tarea
-      executeFetchTask() {
-        axios.get('http://localhost:3000/fetch_earthquake_data')
-          .then(response => {
-            console.log(response.data.message);
-            alert('Éxito", "Se ha actualizado la base de datos exitosamente');
-          })
-          .catch(error => {
-           
-            console.error('Error al ejecutar la tarea:', error);
-            // Por ejemplo, muestra un mensaje de error
-            alert('Error al ejecutar la tarea');
-          });
-      }
-    },
-    
-       
     computed: {
       rows() {
         return this.apiData.length
