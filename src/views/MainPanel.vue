@@ -1,8 +1,32 @@
-<template >
+<template>
   <b-container fluid="sm">
     <b-row>
       <b-col><b-button variant="primary" @click="executeFetchTask">Actualizar DB</b-button></b-col>
-      <b-col></b-col>
+      <b-col>
+        <b-form-group
+          label="Ordenar por"
+          label-for="sort-by-select"
+          label-cols-sm="3"
+          label-align-sm="right"
+          label-size="sm"
+          class="mb-0"
+          v-slot="{ ariaDescribedby }"
+        >
+          <b-input-group size="sm">
+            <b-form-select
+              id="sort-by-select"
+              v-model="sortBy"
+              :options="sortOptions"
+              :aria-describedby="ariaDescribedby"
+              class="w-75"
+            >
+              <template #first>
+                <option value="">-- selecione --</option>
+              </template>
+            </b-form-select>
+          </b-input-group>
+        </b-form-group>
+      </b-col>
       <b-col class="my-1">
         <b-form-group
           label="Filtro"
@@ -25,7 +49,9 @@
           </b-input-group>
         </b-form-group>
       </b-col>
-      <b-col>1 of 3</b-col>
+      <b-col>
+        <b-form-select v-model="selectedMagType" :options="magTypeOptions" @change="applyMagTypeFilter"></b-form-select>
+      </b-col>
     </b-row>
     <div v-if="isLoading">Cargando...</div>
     <div v-else>
@@ -47,6 +73,9 @@
           :items="items"
           :per-page="perPage"
           :current-page="currentPage"
+          :sort-by.sync="sortBy"
+          :sort-desc.sync="sortDesc"
+          :sort-direction="sortDirection"
         >
           <template #table-busy>
             <div class="text-center text-danger my-2">
@@ -60,6 +89,14 @@
         </b-table>
       </div>
     </div>
+    <!-- Modal -->
+    <b-modal hide-footer v-model="showModal" title="Añadir Comentario">
+      <b-form-group label="Comentario">
+        <b-form-textarea v-model="comment"></b-form-textarea>
+      </b-form-group>
+      <b-button variant="primary" @click="addComment">Enviar</b-button>
+      <b-button variant="secondary" @click="showModal = false">Cancelar</b-button>
+    </b-modal>
     <b-row>
       <b-col sm="7" md="6" class="my-1">
         <b-pagination
@@ -71,16 +108,9 @@
         ></b-pagination>
       </b-col>
     </b-row>
-    <!-- Modal -->
-    <b-modal  hide-footer v-model="showModal" title="Añadir Comentario">
-      <b-form-group label="Comentario">
-        <b-form-textarea v-model="comment"></b-form-textarea>
-      </b-form-group>
-      <b-button variant="primary" @click="addComment">Enviar</b-button>
-      <b-button variant="secondary" @click="showModal = false">Cancelar</b-button>
-    </b-modal>
   </b-container>
 </template>
+
 
 <script>
 import axios from 'axios';
@@ -88,15 +118,20 @@ import axios from 'axios';
 export default {
   data() {
     return {
-      filter: '',
+      filter: null,
       perPage: 100,
       currentPage: 1,
       isLoading: true,
       error: null,
       items: [],
       filterOn: [],
+      filterMagType: '',
       showModal: false,
       comment:'',
+      sortBy: '',
+      sortDesc: false,
+      sortDirection: 'asc',
+      selectedMagType: '', // Nuevo
       fields: [
         { key: 'actions', label: 'Acciones' },
         { key: 'id', label: 'ID' },
@@ -113,7 +148,6 @@ export default {
         { key: 'geometry_latitude', label: 'Latitud de la Geometría' },
         { key: 'comments[0].body', label: 'Comentarios' }
       ],
-     
     };
   },
   created() {
@@ -130,8 +164,25 @@ export default {
   },
   computed: {
     rows() {
-      return this.fields.length;
-    }
+      return this.items.length;
+    },
+    sortOptions() {
+      // Create an options list from our fields
+      const excludedColumns = ['actions','id','ids','mag','place','time','url','tsunami',
+                               'title','feature_type','geometry_longitude','geometry_latitude'];
+      const includedColumns = ['comments[0].body'];                         
+                               
+      return this.fields
+        .filter(f => includedColumns.includes(f.key))
+        .filter(f => !excludedColumns.includes(f.key)) // Exclude actions column
+        .map(f => ({ text: f.label, value: f.key }));
+    },
+    magTypeOptions() {
+      // Obtain a list of unique values for the Mag Type filter
+      const uniqueMagTypes = [...new Set(this.items.map(item => item.mag_type))];
+      // Convert the unique values into options for the dropdown filter
+      return uniqueMagTypes.map(magType => ({ value: magType, text: magType }));
+    },
   },
   methods: {
     executeFetchTask() {
@@ -146,23 +197,39 @@ export default {
         });
     },
     addComment() {
-  // Crear un objeto con el comentario
-  const postData = { body: this.comment };
+      // Create an object with the comment
+      const postData = { body: this.comment };
 
-  // Enviar la solicitud POST con el objeto de datos
-  axios.post(`http://localhost:3000/api/earthquakes/${this.selectedEarthquakeId}/comments`, postData)
-    .then(response => {
-      console.log('Respuesta del servidor:', response.data);
-      // Cerrar el modal después de enviar el comentario
-      this.showModal = false;
-      // Limpiar el campo de comentario
-      this.comment = '';
-    })
-    .catch(error => {
-      console.error('Error al enviar el comentario:', error);
-      // Manejar el error si la solicitud falla
-    });
-   }
+      // Send the POST request with the data object
+      axios.post(`http://localhost:3000/api/earthquakes/${this.selectedEarthquakeId}/comments`, postData)
+        .then(response => {
+          console.log('Server Response:', response.data);
+          // Close the modal after sending the comment
+          this.showModal = false;
+          // Clear the comment field
+          this.comment = '';
+        })
+        .catch(error => {
+          console.error('Error sending the comment:', error);
+          // Handle the error if the request fails
+        });
+    },
+    applyMagTypeFilter() {
+      if (this.selectedMagType) {
+        // Filtrar los elementos para incluir solo los que tienen el tipo de magnitud seleccionado
+        this.items = this.items.filter(item => item.mag_type === this.selectedMagType);
+      } else {
+        // Si no se ha seleccionado ningún tipo de magnitud, mostrar todos los elementos
+        this.fetchData();
+      }
+    },
   }
 };
 </script>
+
+<style>
+.row{
+  margin: 29px
+}
+
+</style>
