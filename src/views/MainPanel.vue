@@ -1,9 +1,9 @@
-<template>
-    <b-container fluid="sm">
-       <b-row>
-        <b-col ><b-button variant="primary"  @click="executeFetchTask">Actualizar DB</b-button></b-col>
-        <b-col ></b-col>
-      <b-col  class="my-1">
+<template >
+  <b-container fluid="sm">
+    <b-row>
+      <b-col><b-button variant="primary" @click="executeFetchTask">Actualizar DB</b-button></b-col>
+      <b-col></b-col>
+      <b-col class="my-1">
         <b-form-group
           label="Filtro"
           label-for="filter-input"
@@ -20,42 +20,48 @@
               placeholder="Buscar"
             ></b-form-input>
             <b-input-group-append>
-              <b-button :disabled="!filter" @click="search">Borrar</b-button>
+              <b-button :disabled="!filter" @click="filter = ''">Borrar</b-button>
             </b-input-group-append>
           </b-input-group>
         </b-form-group>
       </b-col>
       <b-col>1 of 3</b-col>
-       </b-row>
-      <div v-if="isLoading">Cargando...</div>
+    </b-row>
+    <div v-if="isLoading">Cargando...</div>
+    <div v-else>
+      <div v-if="error">Error: {{ error }}</div>
       <div v-else>
-        <div v-if="error">Error: {{ error }}</div>
-        <div v-else>
-          <b-table
-           
-            striped hover
-            sticky-header
-            head-variant="light"
-            show-empty
-            small
-            :filter="filter"
-            :items="apiData"
-            :apiData="apiData"
-            :per-page="perPage"
-            :current-page="currentPage"
-            
-          >
+        <b-table
+          no-border-collapse
+          sticky-header
+          head-variant="light"
+          hover
+          show-empty
+          bordered
+          outlined
+          striped
+          small
+          :filter="filter"
+          :filterIncludedFields="filterOn"
+          :fields="fields"
+          :items="items"
+          :per-page="perPage"
+          :current-page="currentPage"
+        >
           <template #table-busy>
-          <div class="text-center text-danger my-2">
-            <b-spinner class="align-middle"></b-spinner>
-            <strong>Loading...</strong>
-          </div>
-         </template>
+            <div class="text-center text-danger my-2">
+              <b-spinner class="align-middle"></b-spinner>
+              <strong>Loading...</strong>
+            </div>
+          </template>
+          <template #cell(actions)="row">
+            <b-button @click="showModal = true; selectedEarthquakeId = row.item.id">Comentar</b-button>
+          </template>
         </b-table>
-        </div>
       </div>
-      <b-row>
-        <b-col sm="7" md="6" class="my-1">
+    </div>
+    <b-row>
+      <b-col sm="7" md="6" class="my-1">
         <b-pagination
           v-model="currentPage"
           :total-rows="rows"
@@ -64,78 +70,99 @@
           class="my-0"
         ></b-pagination>
       </b-col>
-    </b-row> 
-    </b-container>
-  </template>
-  
-  <script>
-  import axios from 'axios';
-  
-  export default {
-    data() {
-      return {
-        filter:'',
-        perPage: 100,
-        currentPage: 1,
-        isLoading: true,
-        error: null,
-        apiData: [ { key: 'id', label: 'id' },
-          { key: 'ids', label: 'ids' },
-          { key: 'mag', label: 'mag', sortable: true },
-          { key: 'place', label: 'place', sortable: true },
-          { key: 'time', label: 'time', sortable: true },
-          { key: 'url', label: 'url', sortable: true },
-          { key: 'tsunami', label: 'tsunami', sortable: true },
-          { key: 'mag_type', label: 'mag_type', sortable: true },
-          { key: 'title', label: 'title', sortable: true },
-          { key: 'feature_type', label: 'feature_type', sortable: true },
-          { key: 'geometry_longitude', label: 'geometry_longitude', sortable: true },
-          { key: 'geometry_latitude', label: 'geometry_latitude', sortable: true }],
-        fields: []
-      };
-    },
-  
-    created() {
-      axios.get('http://localhost:3000/api/earthquakes')
+    </b-row>
+    <!-- Modal -->
+    <b-modal  hide-footer v-model="showModal" title="Añadir Comentario">
+      <b-form-group label="Comentario">
+        <b-form-textarea v-model="comment"></b-form-textarea>
+      </b-form-group>
+      <b-button variant="primary" @click="addComment">Enviar</b-button>
+      <b-button variant="secondary" @click="showModal = false">Cancelar</b-button>
+    </b-modal>
+  </b-container>
+</template>
+
+<script>
+import axios from 'axios';
+
+export default {
+  data() {
+    return {
+      filter: '',
+      perPage: 100,
+      currentPage: 1,
+      isLoading: true,
+      error: null,
+      items: [],
+      filterOn: [],
+      showModal: false,
+      comment:'',
+      fields: [
+        { key: 'actions', label: 'Acciones' },
+        { key: 'id', label: 'ID' },
+        { key: 'ids', label: 'IDs' },
+        { key: 'mag', label: 'Magnitud' },
+        { key: 'place', label: 'Lugar' },
+        { key: 'time', label: 'Tiempo' },
+        { key: 'url', label: 'URL' },
+        { key: 'tsunami', label: 'Tsunami' },
+        { key: 'mag_type', label: 'Tipo de Magnitud' },
+        { key: 'title', label: 'Título' },
+        { key: 'feature_type', label: 'Tipo de Característica' },
+        { key: 'geometry_longitude', label: 'Longitud de la Geometría' },
+        { key: 'geometry_latitude', label: 'Latitud de la Geometría' },
+        { key: 'comments[0].body', label: 'Comentarios' }
+      ],
+     
+    };
+  },
+  created() {
+    axios.get('http://localhost:3000/api/earthquakes_with_comments')
+      .then(response => {
+        this.items = response.data;
+        this.totalRows = this.items.length;
+        this.isLoading = false;
+      })
+      .catch(error => {
+        this.error = error.message;
+        this.isLoading = false;
+      });
+  },
+  computed: {
+    rows() {
+      return this.fields.length;
+    }
+  },
+  methods: {
+    executeFetchTask() {
+      axios.get('http://localhost:3000/fetch_earthquake_data')
         .then(response => {
-          this.apiData = response.data; // Almacena los datos en apiData
-          this.isLoading = false;
+          console.log(response.data.message);
+          alert('Éxito", "Se ha actualizado la base de datos exitosamente');
         })
         .catch(error => {
-          this.error = error.message; // Almacena el mensaje de error en error
-          this.isLoading = false;
+          console.error('Error al ejecutar la tarea:', error);
+          alert('Error al ejecutar la tarea');
         });
     },
-    methods: {
-      // Método para ejecutar la tarea
-      executeFetchTask() {
-        axios.get('http://localhost:3000/fetch_earthquake_data')
-          .then(response => {
-            console.log(response.data.message);
-            alert('Éxito", "Se ha actualizado la base de datos exitosamente');
-          })
-          .catch(error => {
-           
-            console.error('Error al ejecutar la tarea:', error);
-            // Por ejemplo, muestra un mensaje de error
-            alert('Error al ejecutar la tarea');
-          });
-      }
-    },
-    
-       
-    computed: {
-      rows() {
-        return this.apiData.length
-      }
-    },
-    sortOptions() {
-        // Create an options list from our fields
-        return this.fields
-          .filter(f => f.sortable)
-          .map(f => {
-            return { text: f.label, value: f.key }
-          })
-      }
-  };
-  </script>
+    addComment() {
+  // Crear un objeto con el comentario
+  const postData = { body: this.comment };
+
+  // Enviar la solicitud POST con el objeto de datos
+  axios.post(`http://localhost:3000/api/earthquakes/${this.selectedEarthquakeId}/comments`, postData)
+    .then(response => {
+      console.log('Respuesta del servidor:', response.data);
+      // Cerrar el modal después de enviar el comentario
+      this.showModal = false;
+      // Limpiar el campo de comentario
+      this.comment = '';
+    })
+    .catch(error => {
+      console.error('Error al enviar el comentario:', error);
+      // Manejar el error si la solicitud falla
+    });
+   }
+  }
+};
+</script>
